@@ -37,9 +37,9 @@ class TableResponse(BaseModel):
 # ----------------------------
 # Runtime configuration
 # ----------------------------
-PDF_PATH = "PURVA Residential Excellence Fund - I.pdf"
+PDF_PATH = "VR capital.pdf"
 TABULA_JAR_PATH = "external/tabula-1.0.5-jar-with-dependencies.jar"
-PDF_PAGES = "1,2"
+PDF_PAGES = "all"
 OUTPUT_JSON_PATH = "structured_tables.json"
 TABULA_RAW_JSON_PATH = "tabula_raw_tables.json"
 JAVA_BIN = "/usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java"
@@ -49,19 +49,22 @@ ANTHROPIC_MODEL = "claude-sonnet-4-6"
 MAX_TOKENS_PER_TABLE = 10000
 
 
-STRUCTURE_PROMPT = """Extract rows from the table that match:
+STRUCTURE_PROMPT = """Extract rows from the table in a structured format
+with each row having all the columns return valid json.
 
-- Date
-- Transaction Description
-- Amount (INR)
-- BalanceUnits
+Extract these columns:
+1)Transaction Date
+2)Scheme Name
+3)ISIN
+
+
 
 Rules:
 - Match columns semantically (e.g., "Txn Date", "Description", etc.)
 -  where ALL 4 fields are not  present use empty cell
-- Ignore headers, totals, malformed rows
-- Do NOT infer missing values
+- Do NOT infer missing values add a dash
 - If no valid rows exist, return empty rows
+- Empty values put a dash
 """
 
 
@@ -110,13 +113,15 @@ def run_tabula_json(
 ) -> list[dict[str, Any]]:
     cmd = [
         java_bin,
+        #  "-Djava.awt.headless=true", 
         "-jar",
         str(jar_path),
         "--format",
         "JSON",
+         "--guess",
         "--pages",
         pages_spec,
-        "-t",
+        # "-t",
         "--stream",
         str(pdf_path),
     ]
@@ -198,18 +203,18 @@ def structure_table_with_anthropic(
         }
 
 
-def structure_tables_with_anthropic(
-    tables: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    client = anthropic.Anthropic()
-    results = []
+# def structure_tables_with_anthropic(
+#     tables: list[dict[str, Any]],
+# ) -> list[dict[str, Any]]:
+#     client = anthropic.Anthropic()
+#     results = []
 
-    for i, table in enumerate(tables, 1):
-        print(f"Processing table {i}/{len(tables)}")
-        structured = structure_table_with_anthropic(client, table)
-        results.append(structured)
+#     for i, table in enumerate(tables, 1):
+#         print(f"Processing table {i}/{len(tables)}")
+#         structured = structure_table_with_anthropic(client, table)
+#         results.append(structured)
 
-    return results
+#     return results
 
 
 # ----------------------------
@@ -246,8 +251,8 @@ def main():
         write_json(Path(OUTPUT_JSON_PATH), [])
         return
 
-    structured = structure_tables_with_anthropic(normalized)
-    write_json(Path(OUTPUT_JSON_PATH), structured)
+    # structured = structure_tables_with_anthropic(normalized)
+    # write_json(Path(OUTPUT_JSON_PATH), structured)
 
     print("Done.")
 
